@@ -1,12 +1,15 @@
 import { auth } from './firebase';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+
 /** Calls the UniBike API with the current user's Firebase ID token. */
 export async function api(path, { method = 'GET', body } = {}) {
   const headers = { 'Content-Type': 'application/json' };
   const user = auth.currentUser;
   if (user) headers.Authorization = `Bearer ${await user.getIdToken()}`;
 
-  const res = await fetch(`/api${path}`, {
+  const url = `${API_BASE_URL}/api${path}`;
+  const res = await fetch(url, {
     method,
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,

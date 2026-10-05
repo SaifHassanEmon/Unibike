@@ -4,7 +4,23 @@ const cors = require('cors');
 require('./firebase');
 
 const app = express();
-app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173' }));
+
+const allowedOrigins = [
+  'http://localhost:5173',
+  process.env.CLIENT_URL,
+].filter(Boolean);
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // allow requests with no origin (like mobile apps, curl, or same-origin serverless)
+    if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
+      return callback(null, true);
+    }
+    return callback(null, true); // flexible for Vercel preview domains
+  },
+  credentials: true,
+}));
+
 app.use(express.json());
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
@@ -26,5 +42,9 @@ app.use((err, req, res, next) => {
   res.status(status).json({ message: status === 500 ? 'Server error' : err.message });
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`UniBike API running on http://localhost:${PORT}`));
+if (process.env.NODE_ENV !== 'production' || process.env.PORT) {
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => console.log(`UniBike API running on http://localhost:${PORT}`));
+}
+
+module.exports = app;
