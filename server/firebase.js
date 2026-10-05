@@ -3,17 +3,26 @@ const path = require('path');
 const fs = require('fs');
 require('dotenv').config();
 
-if (!admin.apps.length) {
+function initFirebase() {
+  if (admin.apps.length) {
+    return admin.app();
+  }
+
   let credential;
 
   // 1. If JSON content is provided as an environment variable (for Vercel / Cloud)
   if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
     try {
-      const parsed = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+      const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON.trim();
+      const parsed = JSON.parse(raw);
+      // Ensure private key newlines are handled correctly in cloud environments
+      if (parsed.private_key && typeof parsed.private_key === 'string') {
+        parsed.private_key = parsed.private_key.replace(/\\n/g, '\n');
+      }
       credential = admin.credential.cert(parsed);
     } catch (err) {
-      console.error('[UniBike] Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON:', err.message);
-      process.exit(1);
+      console.error('[UniBike] Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON:', err);
+      throw err;
     }
   } else {
     // 2. Otherwise load from local file path
@@ -23,19 +32,18 @@ if (!admin.apps.length) {
     );
 
     if (!fs.existsSync(keyPath)) {
-      console.error(
-        `\n[UniBike] Firebase service account key not found at:\n  ${keyPath}\n` +
-          'Download it from Firebase Console > Project settings > Service accounts > Generate new private key,\n' +
-          'save it as server/serviceAccountKey.json (or set FIREBASE_SERVICE_ACCOUNT_JSON in .env).\n'
-      );
-      process.exit(1);
+      const msg = `[UniBike] Firebase service account key not found at ${keyPath} and FIREBASE_SERVICE_ACCOUNT_JSON is not set.`;
+      console.error(msg);
+      throw new Error(msg);
     }
 
     credential = admin.credential.cert(require(keyPath));
   }
 
-  admin.initializeApp({ credential });
+  return admin.initializeApp({ credential });
 }
+
+initFirebase();
 
 const db = admin.firestore();
 db.settings({ ignoreUndefinedProperties: true });
