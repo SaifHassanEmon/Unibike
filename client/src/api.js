@@ -1,6 +1,8 @@
 import { auth } from './firebase';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+// Strip trailing slash if present so URLs like `${API_BASE_URL}/api...` never form `//api`
+const RAW_URL = import.meta.env.VITE_API_URL || '';
+const API_BASE_URL = RAW_URL.replace(/\/+$/, '');
 
 /** Calls the UniBike API with the current user's Firebase ID token. */
 export async function api(path, { method = 'GET', body } = {}) {
@@ -8,7 +10,9 @@ export async function api(path, { method = 'GET', body } = {}) {
   const user = auth.currentUser;
   if (user) headers.Authorization = `Bearer ${await user.getIdToken()}`;
 
-  const url = `${API_BASE_URL}/api${path}`;
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  const url = `${API_BASE_URL}/api${cleanPath}`;
+
   const res = await fetch(url, {
     method,
     headers,
